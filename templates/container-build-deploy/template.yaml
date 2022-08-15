@@ -1,0 +1,35 @@
+version: 1
+type: pipeline-template
+name: Container Build and Deploy
+templateType: MULTIBRANCH
+description: Builds a top-level Dockerfile from the specified repository and deploys it using a Helm chart from the same repository.
+parameters:
+  - name: repoOwner
+    type: string
+    displayName: Repository Owner
+    defaultValue: REPLACE_GITHUB_ORG
+  - name: repository
+    type: string
+    displayName: Repository
+    defaultValue: insurance-frontend
+  - name: githubCredentialId
+    displayName: GitHub Credential ID
+    type: CREDENTIALS
+    defaultValue: cloudbees-ci-pipeline-workshop-github-app
+  - name: baseImageName
+    type: string
+    displayName: Base Image Name
+    defaultValue: nginx
+multibranch:
+  branchSource:
+    github:
+      id: container-image-build-deploy
+      credentialsId: ${githubCredentialId}
+      repoOwner: ${repoOwner}
+      repository: ${repository}
+      traits:
+        - gitHubBranchDiscovery:
+            strategyId: 1
+        - gitHubPullRequestDiscovery:
+            strategyId: 1
+  markerFile: Dockerfile

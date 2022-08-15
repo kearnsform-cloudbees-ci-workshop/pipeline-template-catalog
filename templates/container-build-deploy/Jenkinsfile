@@ -1,0 +1,46 @@
+library 'pipeline-library'
+pipeline {
+  agent none
+  options { 
+    buildDiscarder(logRotator(numToKeepStr: '2'))
+    preserveStashes(buildCount: 2)    
+    skipDefaultCheckout true
+    timeout(time: 10, unit: 'MINUTES')
+  }
+  environment {
+    REPO_OWNER = "${repoOwner}"
+    REPO_NAME = "${repository}"
+    GITHUB_CREDENTIAL_ID = "${githubCredentialId}"
+  }
+  stages {
+    stage('Staging PR') {
+      when {
+        beforeAgent true
+        branch 'pr-*'
+      }
+      environment {
+        DEPLOYMENT_ENV = "staging"
+      }
+      stages {
+        stage('Build and Push Container Image') {
+          steps {  
+            echo "building and pushing container image for ${REPO_OWNER}/${REPO_NAME}"
+            containerBuildPushGeneric(REPO_NAME) {
+              checkout scm
+              gitShortCommit()
+              stash name: "chart", includes: "chart/**"
+            }
+          }
+        }
+        stage('Deploy: Staging') {
+          steps {  
+            echo "deploying commit $SHORT_COMMIT for ${REPO_OWNER}/${REPO_NAME}"
+            helmDeploy(REPO_OWNER, env.SHORT_COMMIT) {
+              unstash "chart"
+            }
+          }
+        }
+      }
+    }
+  }
+}
