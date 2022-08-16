@@ -6,23 +6,25 @@ pipeline {
     timeout(time: 60, unit: 'MINUTES')
   }
   stages {
-    stage('Update Config Bundle') {
-      agent {
-        kubernetes {
-          yaml libraryResource ('podtemplates/kubectl.yml')
-        }
-      }
+    stage('Publish CasC Bundle Update Event') {
+      agent { label 'default' }
       when {
         beforeAgent true
         branch 'main'
       }
+      environment { CASC_UPDATE_SECRET = credentials('casc-update-secret') }
       steps {
-        container("kubectl") {
-          sh "mkdir -p ${BUNDLE_ID}"
-          sh "find -name '*.yaml' | xargs cp --parents -t ${BUNDLE_ID}"
-          sh "kubectl cp --namespace cbci ${BUNDLE_ID} cjoc-0:/var/jenkins_home/jcasc-bundles-store/ -c jenkins"
-        }
+        gitHubParseOriginUrl()
+        publishEvent event:jsonEvent("""
+          {
+            'controller':{'name':'${BUNDLE_ID}','action':'casc_bundle_update','bundle_id':'${BUNDLE_ID}'},
+            'github':{'organization':'${GITHUB_ORG}','repository':'${GITHUB_REPO}'},
+            'secret':'${CASC_UPDATE_SECRET}',
+            'casc':{'auto_reload':'false'}
+          }
+        """), verbose: true
       }
     }
   }
 }
+
